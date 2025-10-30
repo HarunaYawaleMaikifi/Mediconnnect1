@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MediConnect — Connect to Verified Pharmacies</title>
+
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Font Awesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+
+  <!-- Leaflet (maps) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    :root{
+      --brand-blue: #0a80ff;
+      --brand-green: #19b36a;
+      --bg-grad: linear-gradient(135deg, rgba(10,128,255,0.12) 0%, rgba(25,179,106,0.08) 100%);
+      --muted: #6b7280;
+      --card-radius: 12px;
+    }
+    *{box-sizing:border-box}
+    body{
+      font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: #f6fbfb;
+      color:#0f1724;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+    .navbar-brand { font-weight:700; letter-spacing:0.2px; }
+    .hero {
+      background: var(--bg-grad);
+      border-radius: 14px;
+      padding: 36px;
+      margin-top: 18px;
+    }
+    .search-box{
+      background:#ffffff;
+      border-radius:10px;
+      padding:10px;
+      box-shadow: 0 8px 30px rgba(12,30,60,0.05);
+    }
+    .feature-card { border-radius:var(--card-radius); transition:transform .18s ease, box-shadow .18s ease; }
+    .feature-card:hover{ transform:translateY(-8px); box-shadow:0 18px 40px rgba(12,30,60,0.06); }
+    #map { height: 360px; border-radius: 10px; width:100%; }
+    .footer {
+      background:#071022; color: #cfeefe; padding:28px 0; margin-top:40px;
+    }
+    .social a { color:#cfeefe; margin-right:12px; font-size:18px; opacity:.95; }
+    .back-to-top {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      background: linear-gradient(90deg,var(--brand-blue),var(--brand-green));
+      color:#fff;
+      border-radius:50%;
+      width:46px;height:46px;
+      display:flex;align-items:center;justify-content:center;
+      box-shadow: 0 10px 30px rgba(10,30,60,0.18);
+      cursor:pointer; z-index:9999;
+      display:none;
+      border: none;
+    }
+    .badge-verified { background: #e6ffef; color: #0b8a4b; font-weight:600; border-radius:6px; padding:6px 8px; }
+    .map-card { box-shadow: 0 8px 30px rgba(12,30,60,0.06); border-radius:12px; padding:12px; background:#fff; }
+    footer a { color:inherit; text-decoration:none; }
+    .lead { color: var(--muted); }
+    .hero h1 { font-size: 1.9rem; }
+    @media (min-width:992px){ .hero h1 { font-size:2.25rem; } }
+    @media (max-width:767px){
+      .hero{padding:22px;}
+      .map-card{margin-top:16px;}
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-transparent px-3">
+    <div class="container">
+      <a class="navbar-brand" href="#">MediConnect</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div id="navMenu" class="collapse navbar-collapse">
+        <ul class="navbar-nav ms-auto align-items-lg-center">
+          <li class="nav-item"><a class="nav-link" href="#home">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="#about">About</a></li>
+          <li class="nav-item"><a class="nav-link" href="#features">Features</a></li>
+          <li class="nav-item"><a class="nav-link" href="#mapSection">Pharmacies</a></li>
+          <li class="nav-item"><a class="nav-link" href="#faq">FAQ</a></li>
+          <li class="nav-item"><a class="nav-link" href="#contact">Contact</a></li>
+          <li class="nav-item ms-2"><a class="btn btn-outline-primary btn-sm" href="#" onclick="alert('Login coming soon')">Login</a></li>
+          <li class="nav-item ms-2"><a class="btn btn-primary btn-sm text-white" href="#" onclick="alert('Register coming soon')">Register</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <main class="container" id="home">
+    <div class="row align-items-center hero">
+      <div class="col-lg-6">
+        <h1 class="fw-bold">Connecting you to verified pharmacies across Nigeria</h1>
+        <p class="lead">Search for available drugs, compare prices, and locate trusted pharmacies nearby — helping reduce the risk of fake medication.</p>
+
+        <!-- search mockup -->
+        <div class="search-box mt-4">
+          <form id="searchForm" class="row g-2 align-items-center">
+            <div class="col-12 col-md">
+              <input id="searchInput" class="form-control form-control-lg" type="search" placeholder="Search drug name (e.g., Paracetamol)" required>
+            </div>
+            <div class="col-auto d-grid">
+              <button class="btn btn-lg" id="searchBtn" style="background:linear-gradient(90deg,var(--brand-blue),var(--brand-green)); color:#fff;" type="submit">
+                <i class="fa-solid fa-magnifying-glass me-2"></i>Search
+              </button>
+            </div>
+            <div class="col-12 mt-2">
+              <small class="text-muted">Tip: try "Amoxicillin", "Paracetamol", or "Cetirizine".</small>
+            </div>
+          </form>
+        </div>
+
+        <div class="mt-3 d-flex gap-2">
+          <a class="btn btn-outline-secondary" href="#features" onclick="document.querySelector('#features').scrollIntoView({behavior:'smooth'})">Get Started</a>
+          <button class="btn btn-light" id="findNearBtn"><i class="fa-solid fa-location-crosshairs"></i> Find Nearest Pharmacy</button>
+        </div>
+
+        <div class="mt-4">
+          <small class="text-muted">MediConnect is a prototype: verification & real-time inventory require backend integration.</small>
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="map-card">
+          <div id="map"></div>
+        </div>
+        <div class="mt-2 small text-muted">Interactive map — sample pharmacies pinned (Lagos, Abuja, Kano, Port Harcourt).</div>
+      </div>
+    </div>
+
+    <!-- ABOUT (brief) -->
+    <section id="about" class="mt-5">
+      <div class="row">
+        <div class="col-md-8">
+          <h4>About MediConnect</h4>
+          <p class="text-muted">MediConnect helps users locate verified pharmacies across Nigeria, compare medication prices, and access trusted sources for authentic medication. This landing page is a polished prototype ready to be extended into a full web app.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section id="features" class="mt-4">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <div class="p-4 feature-card border card h-100">
+            <div class="d-flex align-items-center mb-2">
+              <div class="me-3 fs-3 text-primary"><i class="fa-solid fa-magnifying-glass"></i></div>
+              <h5 class="mb-0">Drug Search</h5>
+            </div>
+            <p class="text-muted small">Find which pharmacies stock the medication you need.</p>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="p-4 feature-card border card h-100">
+            <div class="d-flex align-items-center mb-2">
+              <div class="me-3 fs-3" style="color:var(--brand-green)"><i class="fa-solid fa-scale-balanced"></i></div>
+              <h5 class="mb-0">Price Comparison</h5>
+            </div>
+            <p class="text-muted small">Compare prices across pharmacies to get the best value.</p>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="p-4 feature-card border card h-100">
+            <div class="d-flex align-items-center mb-2">
+              <div class="me-3 fs-3 text-success"><i class="fa-solid fa-shield-halved"></i></div>
+              <h5 class="mb-0">Verified Pharmacies</h5>
+            </div>
+            <p class="text-muted small">We highlight trusted pharmacies to reduce the risk of counterfeit drugs.</p>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="p-4 feature-card border card h-100">
+            <div class="d-flex align-items-center mb-2">
+              <div class="me-3 fs-3 text-info"><i class="fa-solid fa-truck-medical"></i></div>
+              <h5 class="mb-0">Authentic Medication</h5>
+            </div>
+            <p class="text-muted small">Encourage pharmacies to list real products and delivery options.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section id="how" class="mt-5">
+      <div class="row align-items-center">
+        <div class="col-md-6">
+          <h4>How it works</h4>
+          <ol class="mt-3">
+            <li><strong>Search your medication</strong> — type a drug name in the search box.</li>
+            <li><strong>Compare trusted pharmacies</strong> — view prices, verification status, and location.</li>
+            <li><strong>Get directions or order safely</strong> — contact the pharmacy or use delivery info (when available).</li>
+          </ol>
+        </div>
+        <div class="col-md-6 text-center">
+          <img src="https://images.unsplash.com/photo-1588774069161-6d7ed0b5b5d5?q=80&w=900&auto=format&fit=crop&ixlib=rb-4.0.3&s=0" alt="health" class="img-fluid rounded" style="max-height:240px; object-fit:cover;">
+        </div>
+      </div>
+    </section>
+
+    <!-- RESULTS (hidden until search) -->
+    <section id="results" class="mt-5" style="display:none;">
+      <h4>Search results</h4>
+      <div id="resultsList" class="row g-3 mt-2"></div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="mt-5">
+      <h4>FAQ</h4>
+      <div class="accordion mt-3" id="faqAcc">
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="faqOne">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne">How are pharmacies verified?</button>
+          </h2>
+          <div id="collapseOne" class="accordion-collapse collapse show" data-bs-parent="#faqAcc">
+            <div class="accordion-body">In production we would verify pharmacies through registration documents, NAFDAC checks, partner vetting, and user feedback. This prototype shows sample entries only.</div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="faqTwo">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo">Can I order medicines on MediConnect?</button>
+          </h2>
+          <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#faqAcc">
+            <div class="accordion-body">Not in this prototype. Ordering & payments can be added later via pharmacy integrations or an in-app ordering system.</div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="faqThree">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree">Is my personal information safe?</button>
+          </h2>
+          <div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#faqAcc">
+            <div class="accordion-body">You should implement secure authentication, encryption, and a clear privacy policy when moving to production. This demo does not store data persistently.</div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="faqFour">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFour">How do I suggest a pharmacy?</button>
+          </h2>
+          <div id="collapseFour" class="accordion-collapse collapse" data-bs-parent="#faqAcc">
+            <div class="accordion-body">Use the Contact form below to suggest a pharmacy. In production, we'd add a pharmacy onboarding workflow.</div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="faqFive">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFive">Who can use MediConnect?</button>
+          </h2>
+          <div id="collapseFive" class="accordion-collapse collapse" data-bs-parent="#faqAcc">
+            <div class="accordion-body">Anyone in Nigeria looking for verified pharmacies — patients, caregivers, and healthcare providers.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTACT -->
+    <section id="contact" class="mt-5">
+      <h4>Contact Us</h4>
+      <div class="row mt-3">
+        <div class="col-md-6">
+          <form id="contactForm">
+            <div class="mb-3">
+              <label for="name" class="form-label">Name</label>
+              <input id="name" class="form-control" required />
+            </div>
+            <div class="mb-3">
+              <label for="email" class="form-label">Email</label>
+              <input id="email" type="email" class="form-control" required />
+            </div>
+            <div class="mb-3">
+              <label for="message" class="form-label">Message</label>
+              <textarea id="message" class="form-control" rows="4" required></textarea>
+            </div>
+            <div class="d-grid">
+              <button id="contactSend" class="btn btn-success" type="submit">Send Message</button>
+            </div>
+            <div id="contactStatus" class="mt-2 small text-muted"></div>
+          </form>
+        </div>
+
+        <div class="col-md-6">
+          <h6>Other ways to reach us</h6>
+          <p class="text-muted">Email: <a href="mailto:hello@mediconnect.example">hello@mediconnect.example</a><br/>Phone: +234 800 000 0000</p>
+          <div class="mt-3">
+            <h6>Follow us</h6>
+            <div class="social">
+              <a href="#" title="X / Twitter"><i class="fa-brands fa-x twitter"></i></a>
+              <a href="#" title="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
+              <a href="#" title="Instagram"><i class="fa-brands fa-instagram"></i></a>
+              <a href="#" title="LinkedIn"><i class="fa-brands fa-linkedin-in"></i></a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="my-5">
+
+    <footer class="footer">
+      <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center">
+        <div class="mb-3 mb-md-0">
+          <strong>MediConnect</strong><br>
+          <small class="text-muted">Connecting users to verified pharmacies across Nigeria.</small>
+        </div>
+        <div class="text-end">
+          <small>© 2025 MediConnect</small><br>
+          <small class="text-muted">Prototype — not for medical use</small>
+        </div>
+      </div>
+    </footer>
+
+  </main>
+
+  <!-- BACK TO TOP -->
+  <button class="back-to-top" id="backToTop" title="Back to top"><i class="fa-solid fa-chevron-up"></i></button>
+
+  <!-- SCRIPTS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    // --- Utilities ---
+    function numberWithCommas(x){ return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+    function escapeHtml(text){ return String(text).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+    // --- MOCK DATA: drugs and pharmacy listings ---
+    const mockData = [
+      {
+        drug: "Paracetamol",
+        results: [
+          { pharmacy: "Lagos Care Pharmacy", city: "Lagos", price: 500, lat:6.5244, lng:3.3792, verified:true },
+          { pharmacy: "Ikeja Wellness", city: "Lagos", price: 450, lat:6.6018, lng:3.3515, verified:true },
+          { pharmacy: "Abuja Meds", city: "Abuja", price: 520, lat:9.0765, lng:7.3986, verified:false }
+        ]
+      },
+      {
+        drug: "Amoxicillin",
+        results: [
+          { pharmacy: "Garki Pharmacy", city: "Abuja", price: 1200, lat:9.0579, lng:7.4951, verified:true },
+          { pharmacy: "Kano Health Store", city: "Kano", price: 1150, lat:12.0022, lng:8.5919, verified:true },
+          { pharmacy: "RiversCare Pharmacy", city: "Port Harcourt", price: 1300, lat:4.8156, lng:7.0498, verified:false }
+        ]
+      },
+      {
+        drug: "Cetirizine",
+        results: [
+          { pharmacy: "Lekki Pharmacy", city: "Lagos", price: 800, lat:6.4503, lng:3.4020, verified:true },
+          { pharmacy: "Jos Pharmacy", city: "Jos", price: 780, lat:9.8965, lng:8.8583, verified:true }
+        ]
+      }
+    ];
+
+    // --- INIT MAP (Leaflet + OSM) ---
+    const map = L.map('map', { zoomControl:true }).setView([9.0820, 8.6753], 6); // Nigeria center
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Add pins for key cities (Abuja, Lagos, Kano, Port Harcourt)
+    const samplePharmacies = [
+      { pharmacy: "Lagos Care Pharmacy", city:"Lagos", lat:6.5244, lng:3.3792, verified:true },
+      { pharmacy: "Ikeja Wellness", city:"Lagos", lat:6.6018, lng:3.3515, verified:true },
+      { pharmacy: "Garki Pharmacy", city:"Abuja", lat:9.0579, lng:7.4951, verified:true },
+      { pharmacy: "Kano Health Store", city:"Kano", lat:12.0022, lng:8.5919, verified:true },
+      { pharmacy: "RiversCare Pharmacy", city:"Port Harcourt", lat:4.8156, lng:7.0498, verified:false }
+    ];
+    const markers = [];
+    samplePharmacies.forEach(p=>{
+      const m = L.marker([p.lat,p.lng]).addTo(map)
+        .bindPopup(`<strong>${p.pharmacy}</strong><br>${p.city}<br><span class="badge-verified">${p.verified ? 'Verified' : 'Unverified'}</span>`);
+      markers.push({ marker:m, ...p });
+    });
+
+    // Flattened list for nearest search (join mockData)
+    const allPharmacies = [];
+    mockData.forEach(entry => entry.results.forEach(p => allPharmacies.push({ ...p, drug: entry.drug })));
+
+    // --- SEARCH (interactive mock) ---
+    const resultsSection = document.getElementById('results');
+    const resultsList = document.getElementById('resultsList');
+    const searchForm = document.getElementById('searchForm');
+    const searchInput = document.getElementById('searchInput');
+
+    searchForm.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const q = searchInput.value.trim();
+      if(!q) return;
+      doSearch(q);
+    });
+
+    function doSearch(query){
+      resultsList.innerHTML = '';
+      const q = query.toLowerCase();
+      // match exact drug name or substring
+      const match = mockData.find(m => m.drug.toLowerCase() === q) || mockData.find(m => m.drug.toLowerCase().includes(q));
+      if(!match){
+        resultsSection.style.display = 'block';
+        resultsList.innerHTML = `<div class="col-12"><div class="alert alert-warning">No results found for <strong>${escapeHtml(query)}</strong>. Try Paracetamol, Amoxicillin or Cetirizine.</div></div>`;
+        return;
+      }
+      const sorted = [...match.results].sort((a,b)=>a.price-b.price);
+      resultsSection.style.display = 'block';
+      sorted.forEach(item=>{
+        const col = document.createElement('div');
+        col.className = 'col-md-4';
+        col.innerHTML = `
+          <div class="card h-100 p-3">
+            <div class="d-flex justify-content-between">
+              <h6 class="mb-1">${escapeHtml(item.pharmacy)}</h6>
+              <span class="badge-verified">${item.verified ? 'Verified' : 'Unverified'}</span>
+            </div>
+            <div class="small text-muted mb-2">${escapeHtml(item.city)}</div>
+            <div class="mt-auto d-flex justify-content-between align-items-center">
+              <div><strong>?${numberWithCommas(item.price)}</strong></div>
+              <div>
+                <button class="btn btn-sm btn-outline-primary me-1" onclick="zoomTo(${item.lat},${item.lng})">View</button>
+                <button class="btn btn-sm btn-primary" onclick="contactPharmacy('${escapeHtml(item.pharmacy)}')">Contact</button>
+              </div>
+            </div>
+          </div>
+        `;
+        resultsList.appendChild(col);
+      });
+
+      const cheapest = sorted[0];
+      const note = document.createElement('div');
+      note.className = 'col-12 mt-3';
+      note.innerHTML = `<div class="alert alert-success">Cheapest for <strong>${escapeHtml(match.drug)}</strong> is <strong>${escapeHtml(cheapest.pharmacy)}</strong> at ?${numberWithCommas(cheapest.price)}</div>`;
+      resultsList.prepend(note);
+    }
+
+    function zoomTo(lat,lng){ map.setView([lat,lng], 13, { animate:true }); }
+    function contactPharmacy(name){ alert('Please contact ' + name + '. In production we would show phone & ordering links.'); }
+
+    // --- FIND NEAREST (geolocation) ---
+    document.getElementById('findNearBtn').addEventListener('click', () => findNearest(true));
+    function getNearest(lat, lng, list){
+      const R = 6371;
+      function toRad(v){ return v*Math.PI/180; }
+      let best = null;
+      list.forEach(p=>{
+        const dLat = toRad(p.lat - lat);
+        const dLon = toRad(p.lng - lng);
+        const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat))*Math.cos(toRad(p.lat)) * Math.sin(dLon/2)**2;
+        const dist = 2*R*Math.asin(Math.sqrt(a));
+        if(!best || dist < best.dist) best = { ...p, dist };
+      });
+      return best;
+    }
+    function findNearest(showAlertIfFail=false){
+      if(!navigator.geolocation){
+        if(showAlertIfFail) alert('Geolocation not available.');
+        return;
+      }
+      const status = document.getElementById('contactStatus');
+      status.innerText = 'Requesting your location...';
+      navigator.geolocation.getCurrentPosition((pos)=>{
+        const lat = pos.coords.latitude, lng = pos.coords.longitude;
+        status.innerText = 'Finding nearest pharmacy...';
+        const nearest = getNearest(lat,lng, allPharmacies);
+        if(nearest){
+          status.innerHTML = `Nearest: <strong>${nearest.pharmacy}</strong> — ${nearest.city} (?${numberWithCommas(nearest.price)})`;
+          map.setView([nearest.lat, nearest.lng], 13, {animate:true});
+          markers.forEach(m=>{ if(m.pharmacy === nearest.pharmacy) m.marker.openPopup(); });
+        } else {
+          status.innerText = 'No sample pharmacies available.';
+        }
+      }, (err)=>{
+        status.innerText = '';
+        if(showAlertIfFail) alert('Could not get location. Allow location access and try again.');
+      }, { enableHighAccuracy:true, timeout:10000 });
+    }
+
+    // --- CONTACT FORM (simulated) ---
+    const contactForm = document.getElementById('contactForm');
+    contactForm.addEventListener('submit', function(e){
+      e.preventDefault();
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const message = document.getElementById('message').value.trim();
+      if(!name || !email || !message){ alert('Please fill all fields.'); return; }
+
+      const btn = document.getElementById('contactSend');
+      const status = document.getElementById('contactStatus');
+      btn.disabled = true; btn.innerHTML = 'Sending...';
+      status.innerText = 'Sending message...';
+
+      setTimeout(()=>{
+        btn.disabled = false; btn.innerHTML = 'Send Message';
+        status.innerText = '';
+        contactForm.reset();
+        alert('Message sent successfully! We will contact you soon.');
+      }, 1100);
+
+      /* To send real emails from front-end: integrate EmailJS or use a backend endpoint.
+         Example (EmailJS):
+         1) Add: <script src="https://cdn.emailjs.com/sdk/3.2.0/email.min.js"></script> then emailjs.init('YOUR_USER_ID');
+         2) emailjs.send('service','template', { from_name:name, from_email:email, message:message })
+            .then(() => { ... })
+            .catch(err => { ... });
+      */
+    });
+
+    // --- BACK TO TOP ---
+    const back = document.getElementById('backToTop');
+    window.addEventListener('scroll', ()=> {
+      if(window.scrollY > 300) back.style.display = 'flex'; else back.style.display = 'none';
+    });
+    back.addEventListener('click', ()=> window.scrollTo({top:0,behavior:'smooth'}));
+
+    // Optional: prefill demo search
+    // searchInput.value = 'Paracetamol'; doSearch('Paracetamol');
+  </script>
+</body>
+</html>
